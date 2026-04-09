@@ -310,17 +310,17 @@ async function fetchTable(tableId) {
 }
 
 async function addRecords(tableId, rows) {
-  const token = await grist.docApi.getAccessToken({ readOnly: false });
-  const resp = await fetch(`${API_BASE}/tables/${tableId}/records`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token.token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ records: rows.map(r => ({ fields: r })) }),
+  // Convert row array to column-oriented format for grist.docApi
+  const colArrays = {};
+  rows.forEach(row => {
+    Object.keys(row).forEach(k => {
+      if (!colArrays[k]) colArrays[k] = [];
+      colArrays[k].push(row[k]);
+    });
   });
-  if (!resp.ok) throw new Error(`Failed to add records: ${resp.status} ${await resp.text()}`);
-  return resp.json();
+  return await grist.docApi.applyUserActions([
+    ['BulkAddOrReplaceRecord', tableId, colArrays, { onMany: 'replace', allowEmpty: true }]
+  ]);
 }
 
 // ── Generator ─────────────────────────────────────────────────────────────────
