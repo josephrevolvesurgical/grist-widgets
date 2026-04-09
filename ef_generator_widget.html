@@ -299,13 +299,14 @@ const DOC_ID   = "bvmVBppUjSJK";
 const API_BASE = `https://revolve.getgrist.com/api/docs/${DOC_ID}`;
 
 async function fetchTable(tableId) {
-  const token = await grist.docApi.getAccessToken({ readOnly: true });
-  const resp = await fetch(`${API_BASE}/tables/${tableId}/records`, {
-    headers: { Authorization: `Bearer ${token.token}` }
+  const data = await grist.docApi.fetchTable(tableId);
+  // Convert column-oriented format to row-oriented
+  const keys = Object.keys(data).filter(k => k !== 'id');
+  return data.id.map((id, i) => {
+    const row = { id };
+    keys.forEach(k => row[k] = data[k][i]);
+    return row;
   });
-  if (!resp.ok) throw new Error(`Failed to fetch ${tableId}: ${resp.status}`);
-  const data = await resp.json();
-  return data.records.map(r => ({ id: r.id, ...r.fields }));
 }
 
 async function addRecords(tableId, rows) {
