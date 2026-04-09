@@ -310,16 +310,16 @@ async function fetchTable(tableId) {
 }
 
 async function addRecords(tableId, rows) {
-  // Convert row array to column-oriented format for grist.docApi
+  // Convert row array to column-oriented format for BulkAddRecord
   const colArrays = {};
   rows.forEach(row => {
     Object.keys(row).forEach(k => {
       if (!colArrays[k]) colArrays[k] = [];
-      colArrays[k].push(row[k]);
+      colArrays[k].push(row[k] === null ? null : (row[k] || ''));
     });
   });
   return await grist.docApi.applyUserActions([
-    ['BulkAddOrReplaceRecord', tableId, colArrays, { onMany: 'replace', allowEmpty: true }]
+    ['BulkAddRecord', tableId, new Array(rows.length).fill(null), colArrays]
   ]);
 }
 
