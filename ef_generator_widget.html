@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EF Event Generator</title>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Fraunces:wght@300;400;600&display=swap');
+
+  :root {
+    --bg:       #0f1117;
+    --surface:  #1a1d27;
+    --border:   #2a2d3a;
+    --accent:   #4f8ef7;
+    --accent2:  #7c5cbf;
+    --success:  #3ecf8e;
+    --warn:     #f59e0b;
+    --danger:   #ef4444;
+    --text:     #e2e8f0;
+    --muted:    #64748b;
+    --mono:     'JetBrains Mono', monospace;
+    --serif:    'Fraunces', serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    min-height: 100vh;
+    padding: 20px;
+    overflow-x: hidden;
+  }
+
+  .header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .header h1 {
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 300;
+    color: var(--text);
+    letter-spacing: -0.3px;
+  }
+
+  .header .tag {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    padding: 3px 8px;
+    border: 1px solid var(--accent);
+    border-radius: 3px;
+  }
+
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 14px;
+    transition: border-color 0.2s;
+  }
+
+  .stat-card:hover { border-color: var(--accent); }
+
+  .stat-label {
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  .stat-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .stat-value.green { color: var(--success); }
+  .stat-value.amber { color: var(--warn); }
+
+  .btn-generate {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none;
+    border-radius: 6px;
+    color: white;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+
+  .btn-generate:hover { opacity: 0.9; }
+  .btn-generate:active { transform: scale(0.99); }
+  .btn-generate:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-generate .spinner {
+    display: none;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    margin-right: 8px;
+  }
+
+  .btn-generate.loading .spinner { display: inline-block; }
+  .btn-generate.loading .btn-text { opacity: 0.7; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .btn-inner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .log-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .log-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(79, 142, 247, 0.05);
+  }
+
+  .log-header span {
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .log-clear {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    transition: color 0.2s;
+  }
+  .log-clear:hover { color: var(--text); }
+
+  .log-body {
+    padding: 12px 14px;
+    max-height: 280px;
+    overflow-y: auto;
+    font-size: 12px;
+    line-height: 1.7;
+  }
+
+  .log-body::-webkit-scrollbar { width: 4px; }
+  .log-body::-webkit-scrollbar-track { background: transparent; }
+  .log-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .log-line { display: flex; gap: 10px; align-items: baseline; }
+
+  .log-time { color: var(--muted); font-size: 10px; min-width: 60px; }
+
+  .log-msg { color: var(--text); }
+  .log-msg.info  { color: var(--text); }
+  .log-msg.ok    { color: var(--success); }
+  .log-msg.warn  { color: var(--warn); }
+  .log-msg.error { color: var(--danger); }
+  .log-msg.dim   { color: var(--muted); }
+  .log-msg.accent { color: var(--accent); }
+
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
+  }
+
+  .empty-state {
+    color: var(--muted);
+    text-align: center;
+    padding: 20px;
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>EF Event Generator</h1>
+  <span class="tag">External Factors</span>
+</div>
+
+<div class="stats-row">
+  <div class="stat-card">
+    <div class="stat-label">Combinations</div>
+    <div class="stat-value" id="stat-total">—</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Existing</div>
+    <div class="stat-value amber" id="stat-existing">—</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">To Add</div>
+    <div class="stat-value green" id="stat-new">—</div>
+  </div>
+</div>
+
+<button class="btn-generate" id="btn-run" onclick="runGenerator()">
+  <div class="btn-inner">
+    <div class="spinner"></div>
+    <span class="btn-text">Generate Events</span>
+  </div>
+</button>
+
+<div class="log-container">
+  <div class="log-header">
+    <span>Activity Log</span>
+    <button class="log-clear" onclick="clearLog()">Clear</button>
+  </div>
+  <div class="log-body" id="log">
+    <div class="empty-state">Press Generate to run</div>
+  </div>
+</div>
+
+<script>
+// ── Logging ───────────────────────────────────────────────────────────────────
+let logInitialized = false;
+
+function log(msg, type = 'info') {
+  const el = document.getElementById('log');
+  if (!logInitialized) {
+    el.innerHTML = '';
+    logInitialized = true;
+  }
+  const now = new Date();
+  const time = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  line.innerHTML = `<span class="log-time">${time}</span><span class="log-msg ${type}">${msg}</span>`;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+function logDivider() {
+  const el = document.getElementById('log');
+  const d = document.createElement('div');
+  d.className = 'divider';
+  el.appendChild(d);
+}
+
+function clearLog() {
+  document.getElementById('log').innerHTML = '<div class="empty-state">Press Generate to run</div>';
+  logInitialized = false;
+}
+
+function setStats(total, existing, toAdd) {
+  document.getElementById('stat-total').textContent    = total    === null ? '—' : total;
+  document.getElementById('stat-existing').textContent = existing === null ? '—' : existing;
+  document.getElementById('stat-new').textContent      = toAdd    === null ? '—' : toAdd;
+}
+
+// ── Grist API helpers ─────────────────────────────────────────────────────────
+async function fetchTable(tableId) {
+  const token = await grist.docApi.getAccessToken({ readOnly: true });
+  const docId = await getDocId();
+  const url = `/api/docs/${docId}/tables/${tableId}/records`;
+  const resp = await fetch(url, {
+    headers: { Authorization: `Bearer ${token.token}` }
+  });
+  if (!resp.ok) throw new Error(`Failed to fetch ${tableId}: ${resp.status}`);
+  const data = await resp.json();
+  return data.records.map(r => ({ id: r.id, ...r.fields }));
+}
+
+async function addRecords(tableId, rows) {
+  const token = await grist.docApi.getAccessToken({ readOnly: false });
+  const docId = await getDocId();
+  const url = `/api/docs/${docId}/tables/${tableId}/records`;
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token.token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ records: rows.map(r => ({ fields: r })) }),
+  });
+  if (!resp.ok) throw new Error(`Failed to add records to ${tableId}: ${resp.status} ${await resp.text()}`);
+  return resp.json();
+}
+
+async function getDocId() {
+  // Extract doc ID from current URL
+  const match = window.location.href.match(/\/doc\/([a-zA-Z0-9_-]+)/);
+  if (match) return match[1];
+  // Fallback: try from parent frame URL
+  try {
+    const parentUrl = window.parent.location.href;
+    const m = parentUrl.match(/\/([a-zA-Z0-9]{12,})\//);
+    if (m) return m[1];
+  } catch(e) {}
+  throw new Error('Could not determine document ID');
+}
+
+// ── Generator ─────────────────────────────────────────────────────────────────
+async function runGenerator() {
+  const btn = document.getElementById('btn-run');
+  btn.disabled = true;
+  btn.classList.add('loading');
+  btn.querySelector('.btn-text').textContent = 'Running...';
+  setStats(null, null, null);
+
+  try {
+    log('Loading source tables...', 'accent');
+
+    const factors    = (await fetchTable('EF_External_Factors')).filter(r => r.Active === 'Yes');
+    const components = (await fetchTable('EF_Components')).filter(r => r.Active === 'Yes');
+    const effects    = (await fetchTable('EF_Effects')).filter(r => r.Active === 'Yes');
+
+    log(`Factors: ${factors.length} active`, 'dim');
+    log(`Components: ${components.length} active`, 'dim');
+    log(`Effects: ${effects.length} active`, 'dim');
+    logDivider();
+
+    // Load existing generated events
+    log('Checking existing events...', 'accent');
+    let existingIds = new Set();
+    try {
+      const existing = await fetchTable('EF_Generated_Events');
+      existingIds = new Set(existing.map(r => r.Combo_ID).filter(Boolean));
+      log(`Found ${existingIds.size} existing events`, 'dim');
+    } catch(e) {
+      log('EF_Generated_Events table not found or empty — treating as first run', 'warn');
+    }
+    logDivider();
+
+    // Generate combinations
+    const newRows = [];
+    for (const factor of factors) {
+      for (const component of components) {
+        for (const effect of effects) {
+          const comboId = `COMBO-${factor.EF_ID}-${component.C_ID}-${effect.EFF_ID}`;
+          if (existingIds.has(comboId)) continue;
+
+          const resultingEvent = effect.Effect_Template
+            .replace('{specific_cause}', factor.Specific_Cause)
+            .replace('{component}', component.Component_Full);
+
+          newRows.push({
+            Combo_ID:               comboId,
+            Trigger_Event_Category: 'External Factor Incompatibility',
+            Trigger_Event:          factor.Trigger_Text,
+            Resulting_Event:        resultingEvent,
+            EF_ID:                  factor.EF_ID,
+            C_ID:                   component.C_ID,
+            EFF_ID:                 effect.EFF_ID,
+            Status:                 'NEW',
+            Review_Notes:           '',
+            Approved:               '',
+          });
+        }
+      }
+    }
+
+    const totalPossible = factors.length * components.length * effects.length;
+    setStats(totalPossible, existingIds.size, newRows.length);
+
+    if (newRows.length === 0) {
+      log('No new combinations to add — all up to date', 'ok');
+    } else {
+      log(`Adding ${newRows.length} new events to EF_Generated_Events...`, 'accent');
+      await addRecords('EF_Generated_Events', newRows);
+      logDivider();
+      log(`✓ Done — ${newRows.length} events added`, 'ok');
+      newRows.forEach(r => log(`  ${r.Combo_ID}`, 'dim'));
+    }
+
+  } catch(err) {
+    log(`Error: ${err.message}`, 'error');
+    console.error(err);
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove('loading');
+    btn.querySelector('.btn-text').textContent = 'Generate Events';
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+grist.ready({
+  requiredAccess: 'full',
+  onEditOptions: () => {},
+});
+</script>
+</body>
+</html>
