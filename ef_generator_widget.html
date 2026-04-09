@@ -295,10 +295,18 @@ function setStats(total, existing, toAdd) {
 }
 
 // ── Grist API helpers ─────────────────────────────────────────────────────────
+async function getApiBase() {
+  const token = await grist.docApi.getAccessToken({ readOnly: true });
+  // token.baseUrl is the full URL prefix for API calls to this document
+  if (token.baseUrl) return { base: token.baseUrl, token: token.token };
+  // Fallback: construct from known doc ID
+  return { base: `https://docs.getgrist.com/api/docs/bvmVBppUjSJK`, token: token.token };
+}
+
 async function fetchTable(tableId) {
   const token = await grist.docApi.getAccessToken({ readOnly: true });
-  const docId = await getDocId();
-  const url = `/api/docs/${docId}/tables/${tableId}/records`;
+  const base = token.baseUrl || `https://docs.getgrist.com/api/docs/bvmVBppUjSJK`;
+  const url = `${base}/tables/${tableId}/records`;
   const resp = await fetch(url, {
     headers: { Authorization: `Bearer ${token.token}` }
   });
@@ -309,8 +317,8 @@ async function fetchTable(tableId) {
 
 async function addRecords(tableId, rows) {
   const token = await grist.docApi.getAccessToken({ readOnly: false });
-  const docId = await getDocId();
-  const url = `/api/docs/${docId}/tables/${tableId}/records`;
+  const base = token.baseUrl || `https://docs.getgrist.com/api/docs/bvmVBppUjSJK`;
+  const url = `${base}/tables/${tableId}/records`;
   const resp = await fetch(url, {
     method: 'POST',
     headers: {
@@ -324,16 +332,18 @@ async function addRecords(tableId, rows) {
 }
 
 async function getDocId() {
-  // Extract doc ID from current URL
-  const match = window.location.href.match(/\/doc\/([a-zA-Z0-9_-]+)/);
-  if (match) return match[1];
-  // Fallback: try from parent frame URL
-  try {
-    const parentUrl = window.parent.location.href;
-    const m = parentUrl.match(/\/([a-zA-Z0-9]{12,})\//);
-    if (m) return m[1];
-  } catch(e) {}
-  throw new Error('Could not determine document ID');
+  return "bvmVBppUjSJK";
+}
+
+async function getAccessToken(readOnly) {
+  const token = await grist.docApi.getAccessToken({ readOnly });
+  return token.token;
+}
+
+async function getBaseUrl() {
+  // Use the token's baseUrl if available, otherwise default
+  const token = await grist.docApi.getAccessToken({ readOnly: true });
+  return token.baseUrl || "https://docs.getgrist.com";
 }
 
 // ── Generator ─────────────────────────────────────────────────────────────────
