@@ -295,19 +295,12 @@ function setStats(total, existing, toAdd) {
 }
 
 // ── Grist API helpers ─────────────────────────────────────────────────────────
-async function getApiBase() {
-  const token = await grist.docApi.getAccessToken({ readOnly: true });
-  // token.baseUrl is the full URL prefix for API calls to this document
-  if (token.baseUrl) return { base: token.baseUrl, token: token.token };
-  // Fallback: construct from known doc ID
-  return { base: `https://docs.getgrist.com/api/docs/bvmVBppUjSJK`, token: token.token };
-}
+const DOC_ID   = "bvmVBppUjSJK";
+const API_BASE = `https://docs.getgrist.com/api/docs/${DOC_ID}`;
 
 async function fetchTable(tableId) {
   const token = await grist.docApi.getAccessToken({ readOnly: true });
-  const base = token.baseUrl || `https://docs.getgrist.com/api/docs/bvmVBppUjSJK`;
-  const url = `${base}/tables/${tableId}/records`;
-  const resp = await fetch(url, {
+  const resp = await fetch(`${API_BASE}/tables/${tableId}/records`, {
     headers: { Authorization: `Bearer ${token.token}` }
   });
   if (!resp.ok) throw new Error(`Failed to fetch ${tableId}: ${resp.status}`);
@@ -317,9 +310,7 @@ async function fetchTable(tableId) {
 
 async function addRecords(tableId, rows) {
   const token = await grist.docApi.getAccessToken({ readOnly: false });
-  const base = token.baseUrl || `https://docs.getgrist.com/api/docs/bvmVBppUjSJK`;
-  const url = `${base}/tables/${tableId}/records`;
-  const resp = await fetch(url, {
+  const resp = await fetch(`${API_BASE}/tables/${tableId}/records`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token.token}`,
@@ -327,23 +318,8 @@ async function addRecords(tableId, rows) {
     },
     body: JSON.stringify({ records: rows.map(r => ({ fields: r })) }),
   });
-  if (!resp.ok) throw new Error(`Failed to add records to ${tableId}: ${resp.status} ${await resp.text()}`);
+  if (!resp.ok) throw new Error(`Failed to add records: ${resp.status} ${await resp.text()}`);
   return resp.json();
-}
-
-async function getDocId() {
-  return "bvmVBppUjSJK";
-}
-
-async function getAccessToken(readOnly) {
-  const token = await grist.docApi.getAccessToken({ readOnly });
-  return token.token;
-}
-
-async function getBaseUrl() {
-  // Use the token's baseUrl if available, otherwise default
-  const token = await grist.docApi.getAccessToken({ readOnly: true });
-  return token.baseUrl || "https://docs.getgrist.com";
 }
 
 // ── Generator ─────────────────────────────────────────────────────────────────
